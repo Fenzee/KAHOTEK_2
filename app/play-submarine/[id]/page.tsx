@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
-import { Users, Trophy, AlertCircle, Play, ArrowLeft } from "lucide-react";
+import { Users, Trophy, AlertCircle, Play, ArrowLeft, Anchor } from "lucide-react";
 import { use } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
@@ -58,7 +58,7 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-function PlayGamePageContent({
+function PlaySubmarinePageContent({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -89,8 +89,6 @@ function PlayGamePageContent({
 
     getUser();
   }, []);
-
-  // Use refs to prevent infinite loops
 
   const fetchGameData = useCallback(async () => {
     try {
@@ -179,12 +177,9 @@ function PlayGamePageContent({
 
     fetchGameData().finally(() => {
       setLoading(false);
-      // Prefetch both routes - we'll determine which one to use later
+      // For submarine mode, prefetch the submarine active page
       router.prefetch(
-        `/play-active/${resolvedParams.id}?participant=${participantId}`
-      );
-      router.prefetch(
-        `/play-submarine/${resolvedParams.id}?participant=${participantId}`
+        `/play-active/${resolvedParams.id}?participant=${participantId}&mode=submarine`
       );
     });
   }, [participantId, fetchGameData, router]);
@@ -192,7 +187,7 @@ function PlayGamePageContent({
   // Setup real-time subscription for game status changes
   useEffect(() => {
     const channel = supabase
-      .channel(`play_game_${resolvedParams.id}`)
+      .channel(`play_submarine_${resolvedParams.id}`)
       .on(
         "postgres_changes",
         {
@@ -202,7 +197,7 @@ function PlayGamePageContent({
           filter: `id=eq.${resolvedParams.id}`,
         },
         (payload) => {
-          console.log("Game session updated:", payload);
+          console.log("Submarine game session updated:", payload);
           fetchGameData();
         }
       )
@@ -261,17 +256,10 @@ function PlayGamePageContent({
       gameSession?.countdown_started_at &&
       participantId
     ) {
-      // Prefetch the appropriate route based on game model
-      if (gameSession?.game_model === 'submarine') {
-        router.prefetch(
-          `/play-submarine/${resolvedParams.id}?participant=${participantId}`
-        );
-      } else {
-        router.prefetch(
-          `/play-active/${resolvedParams.id}?participant=${participantId}`
-        );
-      }
-      
+      // For submarine mode, redirect to submarine active page
+      router.prefetch(
+        `/play-active/${resolvedParams.id}?participant=${participantId}&mode=submarine`
+      );
       const startTime = new Date(gameSession.started_at).getTime();
       const now = Date.now();
       const timeLeft = Math.ceil((startTime - now) / 1000);
@@ -280,7 +268,6 @@ function PlayGamePageContent({
       const interval = setInterval(() => {
         setCountdownLeft((prev) => {
           if (prev && prev > 1) return prev - 1;
-
           return 0;
         });
       }, 1000);
@@ -291,18 +278,12 @@ function PlayGamePageContent({
 
   useEffect(() => {
     if (countdownLeft === 0) {
-      // Check if this is a submarine game
-      if (gameSession?.game_model === 'submarine') {
-        router.push(
-          `/play-submarine/${resolvedParams.id}?participant=${participantId}`
-        );
-      } else {
-        router.push(
-          `/play-active/${resolvedParams.id}?participant=${participantId}`
-        );
-      }
+      // Redirect to submarine mode
+      router.push(
+        `/play-active/${resolvedParams.id}?participant=${participantId}&mode=submarine`
+      );
     }
-  }, [countdownLeft, participantId, resolvedParams.id, router, gameSession]);
+  }, [countdownLeft, participantId, resolvedParams.id, router]);
 
   const leaveGame = async () => {
     if (!participantId || !gameSession) return;
@@ -325,11 +306,11 @@ function PlayGamePageContent({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#105981] via-[#09799E] to-[#58B8CE] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#1a472a] via-[#2d5a3d] to-[#4a7c59] flex items-center justify-center">
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-6"></div>
-          <h2 className="text-2xl font-bold mb-2">Memuat Game...</h2>
-          <p className="text-white/80">Mohon tunggu sebentar</p>
+          <h2 className="text-2xl font-bold mb-2">Memuat Submarine Game...</h2>
+          <p className="text-white/80">Bersiap untuk menyelam!</p>
         </div>
       </div>
     );
@@ -345,7 +326,7 @@ function PlayGamePageContent({
             <p className="text-gray-600 mb-4">{error}</p>
             <Button
               onClick={() => router.push("/join")}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-green-600 hover:bg-green-700"
             >
               Kembali ke Join
             </Button>
@@ -365,7 +346,7 @@ function PlayGamePageContent({
             </h2>
             <Button
               onClick={() => router.push("/join")}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-green-600 hover:bg-green-700"
             >
               Kembali ke Join
             </Button>
@@ -376,47 +357,48 @@ function PlayGamePageContent({
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-[#1a472a] via-[#2d5a3d] to-[#4a7c59] text-white">
       {gameSession.status === "active" &&
       countdownLeft !== null &&
       countdownLeft > 0 ? (
-        <Card className="bg-white shadow-lg rounded-xl p-6 min-h-screen">
+        <Card className="bg-gradient-to-br from-[#1a472a] via-[#2d5a3d] to-[#4a7c59] shadow-lg rounded-xl p-6 min-h-screen border-green-400">
           <CardContent className="p-8 min-h-screen text-center flex flex-col items-center justify-center">
-            <h2 className="text-4xl font-bold text-purple-700 mb-2">
-              Mulai dalam {countdownLeft} detik...
+            <Anchor className="w-24 h-24 text-green-400 mb-6 animate-bounce" />
+            <h2 className="text-4xl font-bold text-green-400 mb-2">
+              Menyelam dalam {countdownLeft} detik...
             </h2>
-            <p className="text-gray-600">Bersiaplah!</p>
+            <p className="text-green-200">Bersiaplah untuk petualangan bawah laut!</p>
           </CardContent>
         </Card>
       ) : (
         <div className="flex flex-col min-h-screen">
-          <header className="flex items-center justify-between px-4 py-4 md:px-6 lg:px-8 border-b">
+          <header className="flex items-center justify-between px-4 py-4 md:px-6 lg:px-8 border-b border-green-400/30">
             <Link
               href="#"
               className="flex items-center gap-2 font-bold text-lg"
               prefetch={false}
             >
-              <Trophy className="h-6 w-6 text-purple-600" />
-              <span>GolekQuiz</span>
+              <Anchor className="h-6 w-6 text-green-400" />
+              <span className="text-green-400">SubmarineQuiz</span>
             </Link>
             <div className="flex items-center gap-2">
-              <Badge className="bg-gray-100 text-gray-700">
+              <Badge className="bg-green-400/20 text-green-400 border-green-400">
                 <Users className="w-3 h-3 mr-1" />
                 {participants.length} pemain
               </Badge>
               <Badge
                 className={`${
                   gameSession.status === "waiting"
-                    ? "bg-purple-600"
+                    ? "bg-green-600"
                     : gameSession.status === "active"
-                    ? "bg-green-500"
+                    ? "bg-blue-500"
                     : "bg-red-500"
                 } text-white`}
               >
                 {gameSession.status === "waiting"
                   ? "Menunggu"
                   : gameSession.status === "active"
-                  ? "Aktif"
+                  ? "Menyelam"
                   : "Selesai"}
               </Badge>
             </div>
@@ -426,36 +408,36 @@ function PlayGamePageContent({
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               {/* Left Column - Quiz Info */}
               <div className="md:col-span-5 lg:col-span-4 space-y-6">
-                <Card className="bg-white shadow-lg rounded-xl p-6">
+                <Card className="bg-green-900/50 shadow-lg rounded-xl p-6 border-green-400/30">
                   <CardHeader className="pb-4 px-0 pt-0">
-                    <CardTitle className="text-xl font-semibold text-center">
-                      {quiz.title}
+                    <CardTitle className="text-xl font-semibold text-center text-green-400">
+                      🌊 {quiz.title}
                     </CardTitle>
                     {quiz.description && (
-                      <p className="text-gray-600 text-center text-sm">
+                      <p className="text-green-200 text-center text-sm">
                         {quiz.description}
                       </p>
                     )}
                   </CardHeader>
                   <CardContent className="px-0 pb-0">
                     <div className="grid grid-cols-3 gap-4 text-center">
-                      <div className="p-4 bg-purple-50 rounded-lg">
-                        <div className="text-3xl font-bold text-purple-600">
+                      <div className="p-4 bg-green-800/50 rounded-lg border border-green-400/20">
+                        <div className="text-3xl font-bold text-green-400">
                           {quiz.questions.length}
                         </div>
-                        <div className="text-sm text-gray-600">Pertanyaan</div>
+                        <div className="text-sm text-green-200">Sonar</div>
                       </div>
-                      <div className="p-4 bg-blue-50 rounded-lg">
-                        <div className="text-3xl font-bold text-blue-600">
+                      <div className="p-4 bg-blue-800/50 rounded-lg border border-blue-400/20">
+                        <div className="text-3xl font-bold text-blue-400">
                           {participants.length}
                         </div>
-                        <div className="text-sm text-gray-600">Pemain</div>
+                        <div className="text-sm text-blue-200">Awak</div>
                       </div>
-                      <div className="p-4 bg-green-50 rounded-lg">
-                        <div className="text-3xl font-bold text-green-600">
+                      <div className="p-4 bg-cyan-800/50 rounded-lg border border-cyan-400/20">
+                        <div className="text-3xl font-bold text-cyan-400">
                           {gameSession.total_time_minutes || "-"}
                         </div>
-                        <div className="text-sm text-gray-600">Menit Total</div>
+                        <div className="text-sm text-cyan-200">Menit</div>
                       </div>
                     </div>
                   </CardContent>
@@ -463,65 +445,65 @@ function PlayGamePageContent({
 
                 {/* Game Status */}
                 {gameSession.status === "waiting" && countdownLeft === null && (
-                  <Card className="bg-white shadow-lg rounded-xl p-6 text-center">
+                  <Card className="bg-green-900/50 shadow-lg rounded-xl p-6 text-center border-green-400/30">
                     <CardContent className="px-0 pb-0 space-y-6">
                       <div className="flex justify-center">
-                        <Play className="w-24 h-24 text-purple-600" />
+                        <Anchor className="w-24 h-24 text-green-400 animate-pulse" />
                       </div>
-                      <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
-                        Menunggu Host Memulai Game
+                      <h2 className="text-2xl md:text-3xl font-bold text-green-400">
+                        Menunggu Kapten Memulai Penyelaman
                       </h2>
-                      <p className="text-base text-gray-600">
-                        Game akan dimulai sebentar lagi...
+                      <p className="text-base text-green-200">
+                        Kapal selam akan segera menyelam...
                       </p>
-                      <p className="text-lg font-semibold text-purple-600">
-                        Game PIN: {gameSession.game_pin}
+                      <p className="text-lg font-semibold text-green-400">
+                        Kode Kapal: {gameSession.game_pin}
                       </p>
 
                       {/* Tombol Kembali */}
                       <Button
                         onClick={leaveGame}
                         variant="outline"
-                        className="mt-4 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        className="mt-4 border-red-300 text-red-400 hover:bg-red-900/20 hover:text-red-300 bg-transparent"
                       >
                         <ArrowLeft className="w-4 h-4 mr-2" />
-                        Keluar dari Game
+                        Keluar dari Kapal
                       </Button>
                     </CardContent>
                   </Card>
                 )}
               </div>
 
-              {/* Right Column - Leaderboard */}
+              {/* Right Column - Crew List */}
               <div className="md:col-span-7 lg:col-span-8">
-                <Card className="bg-white shadow-lg rounded-xl p-6 h-full">
+                <Card className="bg-green-900/50 shadow-lg rounded-xl p-6 h-full border-green-400/30">
                   <CardHeader className="pb-4 px-0 pt-0">
-                    <CardTitle className="text-xl font-semibold">
-                      Waiting room
+                    <CardTitle className="text-xl font-semibold text-green-400">
+                      🚢 Ruang Awak Kapal
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="px-0 pb-0">
                     {participants.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">
+                      <div className="text-center py-8 text-green-400/70">
                         <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>Belum ada pemain yang bergabung</p>
+                        <p>Belum ada awak yang naik kapal</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {participants.map((participant, index) => (
                           <div
                             key={participant.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg ${
+                            className={`flex items-center gap-3 p-3 rounded-lg border ${
                               index === 0
-                                ? "bg-yellow-50"
+                                ? "bg-yellow-900/30 border-yellow-400/30"
                                 : index === 1
-                                ? "bg-gray-50"
+                                ? "bg-gray-800/30 border-gray-400/30"
                                 : index === 2
-                                ? "bg-orange-50"
-                                : "bg-gray-50"
+                                ? "bg-orange-900/30 border-orange-400/30"
+                                : "bg-green-800/30 border-green-400/20"
                             }`}
                           >
-                            <Avatar className="h-10 w-10 border-2 border-yellow-300">
+                            <Avatar className="h-10 w-10 border-2 border-green-400/50">
                               <AvatarImage
                                 src={
                                   (participant.profiles &&
@@ -535,14 +517,14 @@ function PlayGamePageContent({
                                 alt={participant.nickname}
                                 className="object-cover w-full h-full"
                               />
-                              <AvatarFallback className="bg-white text-purple-600 text-sm font-semibold">
+                              <AvatarFallback className="bg-green-800 text-green-400 text-sm font-semibold">
                                 {getInitials(participant.nickname)}
                               </AvatarFallback>
                             </Avatar>
                             <span
-                              className={`font-medium text-gray-800 ${
+                              className={`font-medium text-green-200 ${
                                 participant.id === participantId
-                                  ? "italic underline"
+                                  ? "italic underline text-green-400"
                                   : ""
                               }`}
                             >
@@ -565,7 +547,7 @@ function PlayGamePageContent({
               userId={null}
               nickname={
                 participants.find((p) => p.id === participantId)?.nickname ||
-                "Player"
+                "Awak"
               }
               avatarUrl={(() => {
                 const participant = participants.find(
@@ -585,7 +567,7 @@ function PlayGamePageContent({
   );
 }
 
-export default function PlayGamePage({
+export default function PlaySubmarinePage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -593,9 +575,9 @@ export default function PlayGamePage({
   return (
     <GamePageWithLoading 
       animation="zoom"
-      customLoadingMessage="Memuat ruang permainan..."
+      customLoadingMessage="Memuat kapal selam..."
     >
-      <PlayGamePageContent params={params} />
+      <PlaySubmarinePageContent params={params} />
     </GamePageWithLoading>
   );
 }

@@ -63,6 +63,7 @@ interface GameSession {
   total_time_minutes: number | null;
   countdown_started_at?: number | null;
   game_end_mode?: 'first_finish' | 'wait_timer'; // Game end setting
+  game_model?: string; // Game mode: 'default' or 'submarine'
   participants: Array<{
     id: string;
     nickname: string;
@@ -109,6 +110,7 @@ function HostGamePageContent({
   const [showTimeSetup, setShowTimeSetup] = useState(false);
   const [totalTimeMinutes, setTotalTimeMinutes] = useState<number>(10);
   const [gameEndMode, setGameEndMode] = useState<'first_finish' | 'wait_timer'>('wait_timer'); // Game end mode state
+  const [gameModel, setGameModel] = useState<'default' | 'submarine'>('default'); // Game mode state
   const [isJoining, setIsJoining] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const springConfig = { stiffness: 100, damping: 5 };
@@ -200,7 +202,12 @@ function HostGamePageContent({
         if (remaining <= 0) {
           clearInterval(interval);
           setCountdownLeft(null);
-          router.push(`/game/${gameSession.id}`);
+          // Route based on game model
+          if (gameSession.game_model === 'submarine') {
+            router.push(`/play-submarine/${gameSession.id}?participant=${hostParticipantId}`);
+          } else {
+            router.push(`/game/${gameSession.id}`);
+          }
         }
       }, 1000);
 
@@ -219,9 +226,16 @@ function HostGamePageContent({
       const diff = Math.ceil((startTime + 5000 - now) / 1000); // 5 detik countdown
 
       if (diff <= 0) {
-        router.push(
-          `/play-active/${resolvedParams.id}?participant=${hostParticipantId}`
-        );
+        // Route based on game model
+        if (gameSession.game_model === 'submarine') {
+          router.push(
+            `/play-submarine/${resolvedParams.id}?participant=${hostParticipantId}`
+          );
+        } else {
+          router.push(
+            `/play-active/${resolvedParams.id}?participant=${hostParticipantId}`
+          );
+        }
       } else {
         setCountdownLeft(diff);
         const interval = setInterval(() => {
@@ -229,9 +243,16 @@ function HostGamePageContent({
             if (prev && prev > 1) return prev - 1;
 
             clearInterval(interval);
-            router.push(
-              `/play-active/${resolvedParams.id}?participant=${hostParticipantId}`
-            );
+            // Route based on game model
+            if (gameSession.game_model === 'submarine') {
+              router.push(
+                `/play-submarine/${resolvedParams.id}?participant=${hostParticipantId}`
+              );
+            } else {
+              router.push(
+                `/play-active/${resolvedParams.id}?participant=${hostParticipantId}`
+              );
+            }
             return 0;
           });
         }, 1000);
@@ -417,6 +438,7 @@ function HostGamePageContent({
           status: "waiting",
           total_time_minutes: null,
           game_end_mode: gameEndMode, // Add game end mode to session creation
+          game_model: gameModel, // Add game model to session creation
         })
         .select()
         .single();
@@ -434,6 +456,7 @@ function HostGamePageContent({
         status: session.status,
         total_time_minutes: session.total_time_minutes,
         game_end_mode: session.game_end_mode || gameEndMode, // Add game end mode to state
+        game_model: session.game_model || gameModel, // Add game model to state
         participants: [],
       });
     } catch (error) {
@@ -1017,6 +1040,43 @@ function HostGamePageContent({
                         />
                         <label htmlFor="first_finish" className="text-sm text-gray-700 cursor-pointer">
                           <span className="font-medium">First to Finish</span> - Game berakhir ketika satu pemain selesai
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Game Model Selection */}
+                  <div className="space-y-3">
+                    <Label className="block text-sm font-medium text-gray-700">
+                      Game Mode
+                    </Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="radio"
+                          id="default_mode"
+                          name="gameModel"
+                          value="default"
+                          checked={gameModel === 'default'}
+                          onChange={(e) => setGameModel(e.target.value as 'default' | 'submarine')}
+                          className="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                        />
+                        <label htmlFor="default_mode" className="text-sm text-gray-700 cursor-pointer">
+                          <span className="font-medium">Quiz Normal</span> - Mode quiz standar dengan tampilan biasa
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="radio"
+                          id="submarine_mode"
+                          name="gameModel"
+                          value="submarine"
+                          checked={gameModel === 'submarine'}
+                          onChange={(e) => setGameModel(e.target.value as 'default' | 'submarine')}
+                          className="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                        />
+                        <label htmlFor="submarine_mode" className="text-sm text-gray-700 cursor-pointer">
+                          <span className="font-medium">🌊 Mode Kapal Selam</span> - Tema petualangan bawah laut
                         </label>
                       </div>
                     </div>
