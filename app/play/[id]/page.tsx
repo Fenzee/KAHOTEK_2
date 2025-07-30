@@ -21,6 +21,7 @@ interface GameSession {
   total_time_minutes: number | null;
   countdown_started_at?: string | null;
   game_pin: string;
+  game_model?: 'normal' | 'submarine';
 }
 
 interface Quiz {
@@ -178,8 +179,9 @@ function PlayGamePageContent({
 
     fetchGameData().finally(() => {
       setLoading(false);
+      const playRoute = gameSession?.game_model === 'submarine' ? 'play-submarine' : 'play-active';
       router.prefetch(
-        `/play-active/${resolvedParams.id}?participant=${participantId}`
+        `/${playRoute}/${resolvedParams.id}?participant=${participantId}`
       );
     });
   }, [participantId, fetchGameData, router]);
@@ -256,8 +258,9 @@ function PlayGamePageContent({
       gameSession?.countdown_started_at &&
       participantId
     ) {
+      const playRoute = gameSession?.game_model === 'submarine' ? 'play-submarine' : 'play-active';
       router.prefetch(
-        `/play-active/${resolvedParams.id}?participant=${participantId}`
+        `/${playRoute}/${resolvedParams.id}?participant=${participantId}`
       );
       const startTime = new Date(gameSession.started_at).getTime();
       const now = Date.now();
@@ -278,11 +281,12 @@ function PlayGamePageContent({
 
   useEffect(() => {
     if (countdownLeft === 0) {
+      const playRoute = gameSession?.game_model === 'submarine' ? 'play-submarine' : 'play-active';
       router.push(
-        `/play-active/${resolvedParams.id}?participant=${participantId}`
+        `/${playRoute}/${resolvedParams.id}?participant=${participantId}`
       );
     }
-  }, [countdownLeft, participantId, resolvedParams.id, router]);
+  }, [countdownLeft, participantId, resolvedParams.id, router, gameSession]);
 
   const leaveGame = async () => {
     if (!participantId || !gameSession) return;
